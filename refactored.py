@@ -58,7 +58,7 @@ class GameStats:
         self.difficulty = 1
         self.game_active = False
 
-# --- Problem Generator Interface (remains unchanged) ---
+
 class ProblemGenerator(ABC):
     """
     An abstract base class that defines the interface for all problem generators.
@@ -68,7 +68,6 @@ class ProblemGenerator(ABC):
     def generate(self):
         pass
 
-# --- NEW: Abstract Base Class for Arithmetic Operations ---
 class MathOperation(ABC):
     """
     Abstract base class for a single math operation (e.g., addition, subtraction).
@@ -128,7 +127,6 @@ class OperationFactory:
             raise ValueError(f"Unknown operator: {operator_symbol}")
         return operation_class(num_range_a, num_range_b)
 
-
 class EasyProblemGenerator(ProblemGenerator):
     """
     Generates easy math problems using basic arithmetic operations.
@@ -136,7 +134,6 @@ class EasyProblemGenerator(ProblemGenerator):
     """
     def generate(self):
         op_symbol = random.choice(['+', '-', '*', '/'])
-        # Easy problems use numbers from 1 to 20 for both operands
         operation = OperationFactory.get_operation(op_symbol, (1, 20), (1, 20))
         return operation.get_problem()
 
@@ -195,7 +192,6 @@ class HardProblemGenerator(ProblemGenerator):
         else:
             raise ValueError(f"Unexpected operator type: {op_type}")
 
-
 class QuestionGenerator:
     _GENERATORS = {
         1: EasyProblemGenerator,
@@ -229,7 +225,6 @@ class UIManager:
         self.game_app.game_over_page.set_results(self.game_app.stats.players, winner)
         self.game_app.stacked_widget.setCurrentWidget(self.game_app.game_over_page)
 
-
 class PlayerManager:
     def __init__(self, game_app):
         self.game_app = game_app
@@ -256,7 +251,6 @@ class PlayerManager:
     def all_answered(self):
         return all(not field.isEnabled() for _, field, _ in self.game_app.game_page.player_inputs)
 
-
 class TimerManager:
     def __init__(self, game_app):
         self.game_app = game_app
@@ -282,7 +276,6 @@ class TimerManager:
     def get_elapsed_time(self):
         """Return the elapsed time since the timer started."""
         return time.time() - self.question_start_time
-
 
 class QuestionManager:
     def __init__(self, game_app):
@@ -317,7 +310,6 @@ class QuestionManager:
             bot = next((p for p in self.game_app.stats.players if p.is_bot), None)
             if bot and bot.lives > 0:
                 QtCore.QTimer.singleShot(100, lambda: self.game_app.controller.bot_manager.bot_answer(bot))
-
 
 class BotManager:
     def __init__(self, game_app):
@@ -387,7 +379,7 @@ class GameFlowManager:
             if player.lives <= 0:
                 input_field.setEnabled(False)
 
-        input_field.setEnabled(False) # Disable input after submission
+        input_field.setEnabled(False) 
         self.game_app.game_page.update_leaderboard(self.game_app.stats.players)
         self.game_app.game_page.update_lives_display()
         self.check_game_over()
@@ -406,8 +398,8 @@ class GameFlowManager:
             self.game_app.stats.game_active = False
             self.game_app.controller.question_manager.timer_manager.stop_timer()
             winner = active_players[0] if active_players else None
-            self.game_app.game_page.show_game_over(winner) # Update game page to show game over state
-            QtCore.QTimer.singleShot(3000, lambda: self.end_game(winner)) # Delay before transitioning
+            self.game_app.game_page.show_game_over(winner) 
+            QtCore.QTimer.singleShot(3000, lambda: self.end_game(winner)) 
 
     def end_game(self, winner=None):
         self.game_app.controller.ui_manager.show_game_over(winner)
@@ -424,15 +416,40 @@ class GameFlowManager:
     def play_again(self):
         self.game_app.controller.ui_manager.show_setup()
 
+class GameApp(QtWidgets.QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Brain Buster Math Levels Adventure")
+        self.resize(1000, 800)
+        self.setWindowIcon(QtGui.QIcon("icon.png"))
+
+        central_widget = QtWidgets.QWidget()
+        self.setCentralWidget(central_widget)
+        layout = QtWidgets.QVBoxLayout(central_widget)
+
+        self.stacked_widget = QtWidgets.QStackedWidget()
+        layout.addWidget(self.stacked_widget)
+
+        self.stats = GameStats()
+        self.controller = GameController(UIManager(self), PlayerManager(self), QuestionManager(self), BotManager(self), GameFlowManager(self))
+
+        self.start_page = StartPage(self.controller.show_setup)
+        self.setup_page = GameSetupPage(self.controller.start_game, self.controller.show_start)
+        self.game_page = GamePage(self.controller.submit_answer, self.controller.game_over)
+        self.game_over_page = GameOverPage(self.controller.play_again, self.controller.show_start)
+
+        for page in [self.start_page, self.setup_page, self.game_page, self.game_over_page]:
+            self.stacked_widget.addWidget(page)
+        self.controller.show_start()
+
 
 class GameController:
-    def __init__(self, game_app):
-        self.game_app = game_app
-        self.ui_manager = UIManager(game_app)
-        self.player_manager = PlayerManager(game_app)
-        self.question_manager = QuestionManager(game_app)
-        self.bot_manager = BotManager(game_app)
-        self.game_flow_manager = GameFlowManager(game_app)
+    def __init__(self, ui_manager: UIManager, player_manager: PlayerManager, question_manager: QuestionManager, bot_manager: BotManager, game_flow_manager: GameFlowManager):
+        self.ui_manager = ui_manager
+        self.player_manager = player_manager
+        self.question_manager = question_manager
+        self.bot_manager = bot_manager
+        self.game_flow_manager = game_flow_manager
 
     def show_start(self):
         self.ui_manager.show_start()
@@ -453,31 +470,6 @@ class GameController:
         self.game_flow_manager.play_again()
 
 
-class GameApp(QtWidgets.QMainWindow):
-    def __init__(self):
-        super().__init__()
-        self.setWindowTitle("Brain Buster Math Levels Adventure")
-        self.resize(1000, 800)
-        self.setWindowIcon(QtGui.QIcon("icon.png"))
-
-        central_widget = QtWidgets.QWidget()
-        self.setCentralWidget(central_widget)
-        layout = QtWidgets.QVBoxLayout(central_widget)
-
-        self.stacked_widget = QtWidgets.QStackedWidget()
-        layout.addWidget(self.stacked_widget)
-
-        self.stats = GameStats()
-        self.controller = GameController(self)
-
-        self.start_page = StartPage(self.controller.show_setup)
-        self.setup_page = GameSetupPage(self.controller.start_game, self.controller.show_start)
-        self.game_page = GamePage(self.controller.submit_answer, self.controller.game_over)
-        self.game_over_page = GameOverPage(self.controller.play_again, self.controller.show_start)
-
-        for page in [self.start_page, self.setup_page, self.game_page, self.game_over_page]:
-            self.stacked_widget.addWidget(page)
-        self.controller.show_start()
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
