@@ -5,11 +5,11 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from ui_components import AnimatedButton, FadeLabel, NameInputDialog, GamePage, StartPage, GameSetupPage, GameOverPage, ThemePalette
 from abc import ABC, abstractmethod
 
-# constants
+
+# Constant Values
 QUESTION_LIMIT = 15
 INITIAL_LIVES = 3
 
-# Player classes
 class Player(ABC):
     def __init__(self, name, is_bot=False):
         self.name = name
@@ -55,10 +55,10 @@ class GameStats:
         self.start_time = time.time()
         self.players = []
         self.game_mode = 1
-        self.difficulty = 1 
+        self.difficulty = 1
         self.game_active = False
 
-
+# --- Problem Generator Interface (remains unchanged) ---
 class ProblemGenerator(ABC):
     """
     An abstract base class that defines the interface for all problem generators.
@@ -68,121 +68,132 @@ class ProblemGenerator(ABC):
     def generate(self):
         pass
 
+# --- NEW: Abstract Base Class for Arithmetic Operations ---
+class MathOperation(ABC):
+    """
+    Abstract base class for a single math operation (e.g., addition, subtraction).
+    Defines the interface for generating operands and the problem string/answer.
+    """
+    def __init__(self, num_range_a, num_range_b):
+        self.num_range_a = num_range_a
+        self.num_range_b = num_range_b
 
-class EasyProblemGenerator(ProblemGenerator):
-    def generate(self):
-        op = random.choice(['+', '-', '*', '/'])
-        if op == '+':
-            return self._add()
-        elif op == '-':
-            return self._subtract()
-        elif op == '*':
-            return self._multiply()
-        else:
-            return self._divide()
+    def _generate_operands(self):
+        a = random.randint(*self.num_range_a)
+        b = random.randint(*self.num_range_b)
+        return a, b
 
-    def _add(self):
-        a = random.randint(1, 20)
-        b = random.randint(1, 20)
+    @abstractmethod
+    def get_problem(self):
+        pass
+
+class AdditionOperation(MathOperation):
+    def get_problem(self):
+        a, b = self._generate_operands()
         return f"{a} + {b}", a + b
 
-    def _subtract(self):
-        a = random.randint(1, 20)
-        b = random.randint(1, 20)
-        if a < b:
-            a, b = b, a
+class SubtractionOperation(MathOperation):
+    def get_problem(self):
+        a, b = self._generate_operands()
+        a, b = max(a, b), min(a, b)
         return f"{a} - {b}", a - b
 
-    def _multiply(self):
-        a = random.randint(1, 10)
-        b = random.randint(1, 10)
+class MultiplicationOperation(MathOperation):
+    def get_problem(self):
+        a, b = self._generate_operands()
         return f"{a} × {b}", a * b
 
-    def _divide(self):
-        b = random.randint(1, 10)
-        a = b * random.randint(1, 10)
+class DivisionOperation(MathOperation):
+    def get_problem(self):
+        b = random.randint(*self.num_range_b)
+        a = b * random.randint(*self.num_range_a)
         return f"{a} ÷ {b}", a / b
 
-class MediumProblemGenerator(ProblemGenerator):
+class OperationFactory:
+    """
+    A factory to create specific MathOperation instances based on an operator symbol.
+    This centralizes the creation of basic arithmetic operations.
+    """
+    _OPERATIONS = {
+        '+': AdditionOperation,
+        '-': SubtractionOperation,
+        '*': MultiplicationOperation,
+        '/': DivisionOperation,
+    }
+
+    @staticmethod
+    def get_operation(operator_symbol, num_range_a, num_range_b):
+        operation_class = OperationFactory._OPERATIONS.get(operator_symbol)
+        if not operation_class:
+            raise ValueError(f"Unknown operator: {operator_symbol}")
+        return operation_class(num_range_a, num_range_b)
+
+
+class EasyProblemGenerator(ProblemGenerator):
+    """
+    Generates easy math problems using basic arithmetic operations.
+    It delegates the actual operation generation to the OperationFactory.
+    """
     def generate(self):
-        op = random.choice(['+', '-', '*', '/', 'mixed'])
-        if op == '+':
-            return self._add()
-        elif op == '-':
-            return self._subtract()
-        elif op == '*':
-            return self._multiply()
-        elif op == '/':
-            return self._divide()
+        op_symbol = random.choice(['+', '-', '*', '/'])
+        # Easy problems use numbers from 1 to 20 for both operands
+        operation = OperationFactory.get_operation(op_symbol, (1, 20), (1, 20))
+        return operation.get_problem()
+
+class MediumProblemGenerator(ProblemGenerator):
+    """
+    Generates medium math problems, including basic operations and mixed operations.
+    Basic operations delegate to OperationFactory, while mixed operations are defined here.
+    """
+    def generate(self):
+        op_choice = random.choice(['+', '-', '*', '/', 'mixed'])
+
+        if op_choice == 'mixed':
+            a = random.randint(2, 10)
+            b = random.randint(2, 10)
+            c = random.randint(2, 10)
+            return f"{a} × {b} + {c}", a * b + c
         else:
-            return self._mixed()
-
-    def _add(self):
-        a = random.randint(10, 50)
-        b = random.randint(10, 50)
-        return f"{a} + {b}", a + b
-
-    def _subtract(self):
-        a = random.randint(10, 50)
-        b = random.randint(10, 50)
-        if a < b:
-            a, b = b, a
-        return f"{a} - {b}", a - b
-
-    def _multiply(self):
-        a = random.randint(2, 12)
-        b = random.randint(2, 12)
-        return f"{a} × {b}", a * b
-
-    def _divide(self):
-        b = random.randint(2, 12)
-        a = b * random.randint(2, 12)
-        return f"{a} ÷ {b}", round(a / b, 2)
-
-    def _mixed(self):
-        a = random.randint(2, 10)
-        b = random.randint(2, 10)
-        c = random.randint(2, 10)
-        return f"{a} × {b} + {c}", a * b + c
+            if op_choice in ['+', '-']:
+                operation = OperationFactory.get_operation(op_choice, (10, 50), (10, 50))
+            elif op_choice in ['*', '/']:
+                operation = OperationFactory.get_operation(op_choice, (2, 12), (2, 12))
+            else:
+                raise ValueError(f"Unexpected operator choice: {op_choice}")
+            return operation.get_problem()
 
 class HardProblemGenerator(ProblemGenerator):
+    """
+    Generates hard math problems, which are typically multi-step or complex compositions.
+    These are defined directly within this class as they represent specific problem structures
+    for the hard difficulty, not just single arithmetic operations.
+    """
     def generate(self):
-        op = random.choice(['*+', '*-', '/+', '/mixed'])
-        if op == '*+':
-            return self._multiply_add()
-        elif op == '*-':
-            return self._multiply_subtract()
-        elif op == '/+':
-            return self._divide_add()
+        op_type = random.choice(['multiply_add', 'multiply_subtract', 'divide_add', 'divide_mixed'])
+
+        if op_type == 'multiply_add':
+            a = random.randint(5, 15)
+            b = random.randint(5, 15)
+            c = random.randint(5, 15)
+            return f"({a} × {b}) + {c}", a * b + c
+        elif op_type == 'multiply_subtract':
+            a = random.randint(5, 15)
+            b = random.randint(5, 15)
+            c = random.randint(5, 15)
+            return f"({a} × {b}) - {c}", a * b - c
+        elif op_type == 'divide_add':
+            b_div = random.randint(2, 10)
+            a_div = b_div * random.randint(10, 20)
+            c_add = random.randint(5, 15)
+            return f"({a_div} ÷ {b_div}) + {c_add}", (a_div // b_div) + c_add
+        elif op_type == 'divide_mixed':
+            b_div = random.randint(2, 10)
+            a_div = b_div * random.randint(10, 20)
+            c_mul = random.randint(2, 10)
+            d_add = random.randint(2, 10)
+            return f"({a_div} ÷ {b_div}) × {c_mul} + {d_add}", round((a_div / b_div) * c_mul + d_add, 2)
         else:
-            return self._divide_mixed()
-
-    def _multiply_add(self):
-        a = random.randint(5, 15)
-        b = random.randint(5, 15)
-        c = random.randint(5, 15)
-        return f"({a} × {b}) + {c}", a * b + c
-
-    def _multiply_subtract(self):
-        a = random.randint(5, 15)
-        b = random.randint(5, 15)
-        c = random.randint(5, 15)
-        return f"({a} × {b}) - {c}", a * b - c
-
-    def _divide_add(self):
-        a = random.randint(10, 20)
-        b = random.randint(2, 10)
-        a = a * b
-        c = random.randint(5, 15)
-        return f"({a} ÷ {b}) + {c}", (a // b) + c
-
-    def _divide_mixed(self):
-        a = random.randint(10, 20)
-        b = random.randint(2, 10)
-        a = a * b
-        c = random.randint(2, 10)
-        d = random.randint(2, 10)
-        return f"({a} ÷ {b}) × {c} + {d}", round((a / b) * c + d, 2)
+            raise ValueError(f"Unexpected operator type: {op_type}")
 
 
 class QuestionGenerator:
@@ -196,7 +207,7 @@ class QuestionGenerator:
         self.level = level
         if self.level not in self._GENERATORS:
             raise ValueError(f"Invalid level: {level}. No problem generator registered for this level.")
-        self._problem_generator = self._GENERATORS[self.level]() # called the class
+        self._problem_generator = self._GENERATORS[self.level]()
 
     def generate_problem(self):
         return self._problem_generator.generate()
@@ -227,9 +238,9 @@ class PlayerManager:
         dialog = NameInputDialog(num_players, self.game_app)
         if dialog.exec_() == QtWidgets.QDialog.Accepted:
             names = dialog.get_names()
-            if game_mode == 1: 
+            if game_mode == 1:
                 self.game_app.stats.players = [HumanPlayer(name) for name in names]
-            else: 
+            else:
                 self.game_app.stats.players = [HumanPlayer(names[0]), BotPlayer()]
 
     def enable_disable_player_inputs(self):
@@ -286,7 +297,7 @@ class QuestionManager:
             return
 
         self.game_app.stats.question_number += 1
-        if self.game_app.stats.question_number > QUESTION_LIMIT: 
+        if self.game_app.stats.question_number > QUESTION_LIMIT:
             self.game_app.controller.game_flow_manager.end_game()
             return
 
@@ -475,4 +486,4 @@ if __name__ == "__main__":
     theme_palette.apply_to(app)
     game_app = GameApp()
     game_app.show()
-    sys.exit(app.exec_())
+    sys.exit(app.exec_())   
