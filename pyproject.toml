@@ -1,0 +1,17 @@
+[project]
+name = "ivy-solid"
+version = "0.1.0"
+description = "Revision"
+authors = [
+    {name = "Whilmar Bitoco",email = "whlmrbitoco@gmail.com"}
+]
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pyqt5 (>=5.15.11,<6.0.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
