@@ -197,41 +197,7 @@ class UIManager:
         self.game_app.game_over_page.set_results(self.game_app.stats.players, winner)
         self.game_app.stacked_widget.setCurrentWidget(self.game_app.game_over_page)
 
-class PlayerManager:
-    def __init__(self, game_app):
-        self.game_app = game_app
-
-    def create_human_players(self, names):
-        return [HumanPlayer(name) for name in names]
-
-    def create_human_bot_player(self, human_name):
-        return [HumanPlayer(human_name), BotPlayer()]
-
-    def set_players(self, players):
-        self.game_app.stats.players = players
-
-    def setup_players(self, num_players, game_mode):
-        dialog = NameInputDialog(num_players, self.game_app)
-        if dialog.exec_() == QtWidgets.QDialog.Accepted:
-            names = dialog.get_names()
-            if game_mode == 1:
-                players_list = self.create_human_players(names)
-            else:
-                players_list = self.create_human_bot_player(names[0])
-            self.set_players(players_list)
-
-    def enable_disable_player_inputs(self):
-        for player, input_field, _ in self.game_app.game_page.player_inputs:
-            input_field.setEnabled(player.lives > 0)
-
-    def get_input_field(self, player):
-        for p, field, _ in self.game_app.game_page.player_inputs:
-            if p == player:
-                return field
-        return None
-
-    def all_answered(self):
-        return all(not field.isEnabled() for _, field, _ in self.game_app.game_page.player_inputs)
+# PlayerManager class is removed
 
 class TimerManager:
     def __init__(self, game_app):
@@ -282,7 +248,8 @@ class QuestionManager:
 
         self.timer_manager.start_timer()
 
-        self.game_app.controller.player_manager.enable_disable_player_inputs()
+        # Call enable_disable_player_inputs from GameManager
+        self.game_app.game_manager.enable_disable_player_inputs()
 
         if self.game_app.stats.game_mode == 2: # If playing against a bot
             bot = next((p for p in self.game_app.stats.players if p.is_bot), None)
@@ -314,12 +281,11 @@ class GameFlowManager:
     def start_game(self, game_mode, num_players, difficulty):
         self.game_app.game_manager.initialize_game(game_mode, num_players, difficulty)
 
-
     def submit_answer(self, player):
         if not self.game_app.stats.game_active or player.lives <= 0:
             return
 
-        input_field = self.game_app.controller.player_manager.get_input_field(player)
+        input_field = self.game_app.game_manager.get_input_field(player)
         if not input_field:
             return
 
@@ -353,7 +319,8 @@ class GameFlowManager:
         self.game_app.game_page.update_lives_display()
         self.check_game_over()
 
-        if self.game_app.controller.player_manager.all_answered() and self.game_app.stats.game_active:
+        # Call all_answered from GameManager
+        if self.game_app.game_manager.all_answered() and self.game_app.stats.game_active:
             self.game_app.controller.question_manager.timer_manager.stop_timer()
             QtCore.QTimer.singleShot(2000, self.game_app.controller.question_manager.load_next_question)
 
@@ -389,21 +356,30 @@ class GameFlowManager:
 class GameManager:
     def __init__(self, game_app):
         self.game_app = game_app
-        self.game = None
 
     def initialize_game(self, game_mode, num_players, difficulty):
-        player_names = ["Player 1", "Player 2", "Player 3", "Player 4", "Player 5"]
-        players = [HumanPlayer(name) for name in player_names] # LIST TO HOLD PLAYER INSTANCES
-
+        player = []
         self.game_app.stats.reset()
         self.game_app.stats.game_mode = game_mode
         self.game_app.stats.difficulty = difficulty
         self.game_app.stats.game_active = True
-        self.game_app.controller.player_manager.setup_players(num_players, game_mode)
+
+        dialog = NameInputDialog(num_players, self.game_app)
+        if dialog.exec_() == QtWidgets.QDialog.Accepted:
+            names = dialog.get_names() # dynamic data from dialog
+            if game_mode == 1:
+                players = [HumanPlayer(name) for name in names]
+            else:
+                players = [HumanPlayer(names[0]), BotPlayer()]
+        else:
+            print("Game initialization cancelled or no players selected.")
+            return None
+
+        self.game_app.stats.players = players
 
         if not self.game_app.stats.players:
             print("Game initialization cancelled or no players selected.")
-            return None 
+            return None
 
         self.game_app.setWindowTitle(f"Brain Buster - {'Multiplayer' if game_mode == 1 else 'Single Player'} Mode")
         self.game_app.game_page.setup_player_inputs(self.game_app.stats.players)
@@ -411,6 +387,19 @@ class GameManager:
         self.game_app.controller.question_manager.load_next_question()
 
         return self.game_app
+
+    def enable_disable_player_inputs(self):
+        for player, input_field, _ in self.game_app.game_page.player_inputs:
+            input_field.setEnabled(player.lives > 0)
+
+    def get_input_field(self, player):
+        for p, field, _ in self.game_app.game_page.player_inputs:
+            if p == player:
+                return field
+        return None
+
+    def all_answered(self):
+        return all(not field.isEnabled() for _, field, _ in self.game_app.game_page.player_inputs)
 
 
 class Application(QtWidgets.QMainWindow): # GameApp renamed to Application
@@ -428,7 +417,7 @@ class Application(QtWidgets.QMainWindow): # GameApp renamed to Application
         layout.addWidget(self.stacked_widget)
 
         self.stats = GameStats()
-        self.controller = GameController(UIManager(self), PlayerManager(self), QuestionManager(self), BotManager(self), GameFlowManager(self))
+        self.controller = GameController(UIManager(self), QuestionManager(self), BotManager(self), GameFlowManager(self))
 
         self.game_manager = GameManager(self)
 
@@ -443,9 +432,8 @@ class Application(QtWidgets.QMainWindow): # GameApp renamed to Application
 
 
 class GameController:
-    def __init__(self, ui_manager: UIManager, player_manager: PlayerManager, question_manager: QuestionManager, bot_manager: BotManager, game_flow_manager: GameFlowManager):
+    def __init__(self, ui_manager: UIManager, question_manager: QuestionManager, bot_manager: BotManager, game_flow_manager: GameFlowManager):
         self.ui_manager = ui_manager
-        self.player_manager = player_manager
         self.question_manager = question_manager
         self.bot_manager = bot_manager
         self.game_flow_manager = game_flow_manager
@@ -458,7 +446,6 @@ class GameController:
 
     def start_game(self, game_mode, num_players, difficulty):
         self.game_flow_manager.start_game(game_mode, num_players, difficulty)
-
 
     def submit_answer(self, player):
         self.game_flow_manager.submit_answer(player)
