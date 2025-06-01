@@ -389,7 +389,6 @@ class GameFlowManager:
         self.game_app.controller.ui_manager.show_setup()
 
 
-
 class GameManager:
     def __init__(self, game_app):
         self.game_app = game_app
@@ -425,7 +424,7 @@ class GameManager:
         return self.game_app
 
 
-class Application(QtWidgets.QMainWindow):
+class Application(QtWidgets.QMainWindow): # GameApp renamed to Application
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Brain Buster Math Levels Adventure")
