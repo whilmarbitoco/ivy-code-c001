@@ -10,6 +10,11 @@ from abc import ABC, abstractmethod
 QUESTION_LIMIT = 15
 INITIAL_LIVES = 3
 
+class Answerable(ABC):
+    @abstractmethod
+    def answer(self, correct_answer, difficulty):
+        pass
+
 class Player(ABC):
     def __init__(self, name, is_bot=False):
         self.name = name
@@ -20,18 +25,13 @@ class Player(ABC):
         self.lives = INITIAL_LIVES
         self.avatar = random.choice(["👦", "👧", "🧑", "👩", "🤖", "👨", "👴", "👵"])
 
-    @abstractmethod
-    def answer(self, correct_answer, difficulty):
-        pass
 
 class HumanPlayer(Player):
     def __init__(self, name):
         super().__init__(name, is_bot=False)
 
-    def answer(self, correct_answer=None, difficulty=None):
-        pass
 
-class BotPlayer(Player):
+class BotPlayer(Player, Answerable):
     def __init__(self, name="Math Bot"):
         super().__init__(name, is_bot=True)
 
@@ -60,19 +60,11 @@ class GameStats:
 
 
 class ProblemGenerator(ABC):
-    """
-    An abstract base class that defines the interface for all problem generators.
-    All concrete problem generator classes must implement the 'generate' method.
-    """
     @abstractmethod
     def generate(self):
         pass
 
 class MathOperation(ABC):
-    """
-    Abstract base class for a single math operation (e.g., addition, subtraction).
-    Defines the interface for generating operands and the problem string/answer.
-    """
     def __init__(self, num_range_a, num_range_b):
         self.num_range_a = num_range_a
         self.num_range_b = num_range_b
@@ -109,10 +101,6 @@ class DivisionOperation(MathOperation):
         return f"{a} ÷ {b}", a / b
 
 class OperationFactory:
-    """
-    A factory to create specific MathOperation instances based on an operator symbol.
-    This centralizes the creation of basic arithmetic operations.
-    """
     _OPERATIONS = {
         '+': AdditionOperation,
         '-': SubtractionOperation,
@@ -128,20 +116,12 @@ class OperationFactory:
         return operation_class(num_range_a, num_range_b)
 
 class EasyProblemGenerator(ProblemGenerator):
-    """
-    Generates easy math problems using basic arithmetic operations.
-    It delegates the actual operation generation to the OperationFactory.
-    """
     def generate(self):
         op_symbol = random.choice(['+', '-', '*', '/'])
         operation = OperationFactory.get_operation(op_symbol, (1, 20), (1, 20))
         return operation.get_problem()
 
 class MediumProblemGenerator(ProblemGenerator):
-    """
-    Generates medium math problems, including basic operations and mixed operations.
-    Basic operations delegate to OperationFactory, while mixed operations are defined here.
-    """
     def generate(self):
         op_choice = random.choice(['+', '-', '*', '/', 'mixed'])
 
@@ -160,11 +140,6 @@ class MediumProblemGenerator(ProblemGenerator):
             return operation.get_problem()
 
 class HardProblemGenerator(ProblemGenerator):
-    """
-    Generates hard math problems, which are typically multi-step or complex compositions.
-    These are defined directly within this class as they represent specific problem structures
-    for the hard difficulty, not just single arithmetic operations.
-    """
     def generate(self):
         op_type = random.choice(['multiply_add', 'multiply_subtract', 'divide_add', 'divide_mixed'])
 
@@ -229,14 +204,24 @@ class PlayerManager:
     def __init__(self, game_app):
         self.game_app = game_app
 
+    def create_human_players(self, names):
+        return [HumanPlayer(name) for name in names]
+
+    def create_human_bot_player(self, human_name):
+        return [HumanPlayer(human_name), BotPlayer()]
+
+    def set_players(self, players):
+        self.game_app.stats.players = players
+
     def setup_players(self, num_players, game_mode):
         dialog = NameInputDialog(num_players, self.game_app)
         if dialog.exec_() == QtWidgets.QDialog.Accepted:
             names = dialog.get_names()
             if game_mode == 1:
-                self.game_app.stats.players = [HumanPlayer(name) for name in names]
+                players_list = self.create_human_players(names)
             else:
-                self.game_app.stats.players = [HumanPlayer(names[0]), BotPlayer()]
+                players_list = self.create_human_bot_player(names[0])
+            self.set_players(players_list)
 
     def enable_disable_player_inputs(self):
         for player, input_field, _ in self.game_app.game_page.player_inputs:
@@ -260,30 +245,26 @@ class TimerManager:
         self.timer.timeout.connect(self.update_timer)
 
     def start_timer(self):
-        """Start the timer and record the start time."""
         self.question_start_time = time.time()
         self.timer.start(self.timer_interval)
 
     def stop_timer(self):
-        """Stop the timer."""
         self.timer.stop()
 
     def update_timer(self):
-        """Update the timer display with elapsed time."""
         elapsed = time.time() - self.question_start_time
         self.game_app.game_page.update_timer(elapsed)
 
     def get_elapsed_time(self):
-        """Return the elapsed time since the timer started."""
         return time.time() - self.question_start_time
 
 class QuestionManager:
-    def __init__(self, game_app):
-        self.game_app = game_app
-        self.current_problem = ""
-        self.current_answer = 0
-        self.current_level = 1
-        self.timer_manager = TimerManager(game_app)
+    def __init__(self_obj, game_app):
+        self_obj.game_app = game_app
+        self_obj.current_problem = ""
+        self_obj.current_answer = 0
+        self_obj.current_level = 1
+        self_obj.timer_manager = TimerManager(game_app)
 
     def load_next_question(self):
         if not self.game_app.stats.game_active:
@@ -309,15 +290,18 @@ class QuestionManager:
         if self.game_app.stats.game_mode == 2: # If playing against a bot
             bot = next((p for p in self.game_app.stats.players if p.is_bot), None)
             if bot and bot.lives > 0:
-                QtCore.QTimer.singleShot(100, lambda: self.game_app.controller.bot_manager.bot_answer(bot))
+                # Type hint to clarify bot is Answerable
+                if isinstance(bot, Answerable):
+                    QtCore.QTimer.singleShot(100, lambda: self.game_app.controller.bot_manager.bot_answer(bot))
 
 class BotManager:
     def __init__(self, game_app):
         self.game_app = game_app
 
-    def bot_answer(self, bot):
+    def bot_answer(self, bot: 'Answerable'): # Type hint for clarity
         if not hasattr(self.game_app.controller.question_manager, 'current_answer') or bot.lives <= 0:
             return
+        # The 'answer' method is now guaranteed to exist because bot is Answerable
         answer = bot.answer(self.game_app.controller.question_manager.current_answer,
                             self.game_app.stats.difficulty)
         for player, input_field, _ in self.game_app.game_page.player_inputs:
@@ -331,19 +315,8 @@ class GameFlowManager:
         self.game_app = game_app
 
     def start_game(self, game_mode, num_players, difficulty):
-        self.game_app.stats.reset()
-        self.game_app.stats.game_mode = game_mode
-        self.game_app.stats.difficulty = difficulty
-        self.game_app.stats.game_active = True
+        self.game_app.game_manager.initialize_game(game_mode, num_players, difficulty)
 
-        self.game_app.controller.player_manager.setup_players(num_players, game_mode)
-
-        if not self.game_app.stats.players:
-            return
-
-        self.game_app.game_page.setup_player_inputs(self.game_app.stats.players)
-        self.game_app.controller.ui_manager.show_game()
-        self.game_app.controller.question_manager.load_next_question()
 
     def submit_answer(self, player):
         if not self.game_app.stats.game_active or player.lives <= 0:
@@ -372,14 +345,13 @@ class GameFlowManager:
 
         if correct:
             player.correct_answers += 1
-            # Score calculation: Faster correct answers get more points
             player.score += max(1, int(100 * (1 - min(1, response_time / 10.0))))
         else:
             player.lives -= 1
             if player.lives <= 0:
                 input_field.setEnabled(False)
 
-        input_field.setEnabled(False) 
+        input_field.setEnabled(False)
         self.game_app.game_page.update_leaderboard(self.game_app.stats.players)
         self.game_app.game_page.update_lives_display()
         self.check_game_over()
@@ -398,8 +370,8 @@ class GameFlowManager:
             self.game_app.stats.game_active = False
             self.game_app.controller.question_manager.timer_manager.stop_timer()
             winner = active_players[0] if active_players else None
-            self.game_app.game_page.show_game_over(winner) 
-            QtCore.QTimer.singleShot(3000, lambda: self.end_game(winner)) 
+            self.game_app.game_page.show_game_over(winner)
+            QtCore.QTimer.singleShot(3000, lambda: self.end_game(winner))
 
     def end_game(self, winner=None):
         self.game_app.controller.ui_manager.show_game_over(winner)
@@ -416,7 +388,44 @@ class GameFlowManager:
     def play_again(self):
         self.game_app.controller.ui_manager.show_setup()
 
-class GameApp(QtWidgets.QMainWindow):
+
+
+class GameManager:
+    def __init__(self, game_app):
+        self.game_app = game_app
+        self.game = None
+        self.players = [] # LIST TO HOLD PLAYER INSTANCES
+
+    def initialize_game(self, game_mode, num_players, difficulty, player_names=None):
+        self.game_app.stats.reset()
+        self.game_app.stats.game_mode = game_mode
+        self.game_app.stats.difficulty = difficulty
+        self.game_app.stats.game_active = True
+
+        if player_names is not None:
+            if game_mode == 1: # IF MULTIPLAYER MODE
+                self.players = self.game_app.controller.player_manager.create_human_players(player_names) # INITIALIZE PLAYER OBJECT
+            elif game_mode == 2 and len(player_names) > 0: # IF SINGLEPLAYER
+                self.players = self.game_app.controller.player_manager.create_human_bot_player(player_names[0]) # INITIALIZE PLAYER OBJECT AND BOT
+            else:
+                self.game_app.controller.player_manager.set_players(self.players)
+        else:
+            self.game_app.controller.player_manager.setup_players(num_players, game_mode)
+
+        if not self.game_app.stats.players:
+            print("Game initialization cancelled or no players selected.")
+            return None 
+
+        self.game_app.setWindowTitle(f"Brain Buster - {'Multiplayer' if game_mode == 1 else 'Single Player'} Mode")
+        self.game_app.game_page.setup_player_inputs(self.game_app.stats.players)
+        self.game_app.controller.ui_manager.show_game()
+        self.game_app.controller.question_manager.load_next_question()
+
+        # Return the game_app instance if initialization is successful
+        return self.game_app
+
+
+class Application(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Brain Buster Math Levels Adventure")
@@ -432,6 +441,8 @@ class GameApp(QtWidgets.QMainWindow):
 
         self.stats = GameStats()
         self.controller = GameController(UIManager(self), PlayerManager(self), QuestionManager(self), BotManager(self), GameFlowManager(self))
+
+        self.game_manager = GameManager(self)
 
         self.start_page = StartPage(self.controller.show_setup)
         self.setup_page = GameSetupPage(self.controller.start_game, self.controller.show_start)
@@ -460,6 +471,7 @@ class GameController:
     def start_game(self, game_mode, num_players, difficulty):
         self.game_flow_manager.start_game(game_mode, num_players, difficulty)
 
+
     def submit_answer(self, player):
         self.game_flow_manager.submit_answer(player)
 
@@ -470,12 +482,11 @@ class GameController:
         self.game_flow_manager.play_again()
 
 
-
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
     app.setStyle("Fusion")
     theme_palette = ThemePalette()
     theme_palette.apply_to(app)
-    game_app = GameApp()
+    game_app = Application()
     game_app.show()
-    sys.exit(app.exec_())   
+    sys.exit(app.exec_())
