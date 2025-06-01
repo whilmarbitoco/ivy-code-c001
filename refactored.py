@@ -25,11 +25,9 @@ class Player(ABC):
         self.lives = INITIAL_LIVES
         self.avatar = random.choice(["👦", "👧", "🧑", "👩", "🤖", "👨", "👴", "👵"])
 
-
 class HumanPlayer(Player):
     def __init__(self, name):
         super().__init__(name, is_bot=False)
-
 
 class BotPlayer(Player, Answerable):
     def __init__(self, name="Math Bot"):
@@ -57,7 +55,6 @@ class GameStats:
         self.game_mode = 1
         self.difficulty = 1
         self.game_active = False
-
 
 class ProblemGenerator(ABC):
     @abstractmethod
@@ -393,23 +390,16 @@ class GameManager:
     def __init__(self, game_app):
         self.game_app = game_app
         self.game = None
-        self.players = [] # LIST TO HOLD PLAYER INSTANCES
 
-    def initialize_game(self, game_mode, num_players, difficulty, player_names=None):
+    def initialize_game(self, game_mode, num_players, difficulty):
+        player_names = ["Player 1", "Player 2", "Player 3", "Player 4", "Player 5"]
+        players = [HumanPlayer(name) for name in player_names] # LIST TO HOLD PLAYER INSTANCES
+
         self.game_app.stats.reset()
         self.game_app.stats.game_mode = game_mode
         self.game_app.stats.difficulty = difficulty
         self.game_app.stats.game_active = True
-
-        if player_names is not None:
-            if game_mode == 1: # IF MULTIPLAYER MODE
-                self.players = self.game_app.controller.player_manager.create_human_players(player_names) # INITIALIZE PLAYER OBJECT
-            elif game_mode == 2 and len(player_names) > 0: # IF SINGLEPLAYER
-                self.players = self.game_app.controller.player_manager.create_human_bot_player(player_names[0]) # INITIALIZE PLAYER OBJECT AND BOT
-            else:
-                self.game_app.controller.player_manager.set_players(self.players)
-        else:
-            self.game_app.controller.player_manager.setup_players(num_players, game_mode)
+        self.game_app.controller.player_manager.setup_players(num_players, game_mode)
 
         if not self.game_app.stats.players:
             print("Game initialization cancelled or no players selected.")
@@ -420,7 +410,6 @@ class GameManager:
         self.game_app.controller.ui_manager.show_game()
         self.game_app.controller.question_manager.load_next_question()
 
-        # Return the game_app instance if initialization is successful
         return self.game_app
 
 
