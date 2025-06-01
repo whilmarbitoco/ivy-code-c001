@@ -2,11 +2,11 @@
 
 ### `Answerable`
 
-This **interface** defines the `answer()` method, enabling classes like `BotPlayer` to **simulate providing an answer** to a question programmatically.
+This **interface** defines the `answer()` method, enabling classes like `BotPlayer` to directly provide an answer to a question programmatically.
 
 ### `ProblemGenerator`
 
-An **abstract base class** that establishes a contract for all problem generation types. It enforces the implementation of the `generate()` method, which is crucial for **creating diverse math problems**.
+An **abstract base class** that establishes a contract for all problem generation types. It enforces the implementation of the `generate()` method, which is crucial for creating diverse math problems.
 
 ### `MathOperation`
 
@@ -18,11 +18,11 @@ This **abstract class** is designed to manage the generation of operands for mat
 
 ### `Player`
 
-The **foundational class** for all player types, `Player` encapsulates common attributes such as **name, score, response time, lives, and avatar**.
+The foundational/base/parent class for all player types, `Player` encapsulates common attributes such as **name, score, response time, lives, and avatar**.
 
 ### `HumanPlayer`
 
-A direct subclass of `Player`, `HumanPlayer` specifically represents a **player controlled by a human**.
+A direct subclass of `Player`, `HumanPlayer` specifically represents a player controlled by a human.
 
 ### `BotPlayer`
 
@@ -98,7 +98,7 @@ The **strategic brain of the game**, `GameFlowManager` governs the overall game 
 
 ### 1. **S – Single Responsibility Principle (SRP)**
 
-Our design rigorously applies SRP, ensuring that **each class has one clear, distinct purpose**:
+SRP ensures that **each class has one clear, distinct purpose**:
 
 - `UIManager`: Exclusively manages **screen transitions**.
 
@@ -163,7 +163,7 @@ Our design rigorously applies SRP, ensuring that **each class has one clear, dis
 
 ### 2. **O – Open/Closed Principle (OCP)**
 
-The codebase is structured to be **open for extension but closed for modification**:
+**open for extension but closed for modification**:
 
 - Developers can introduce **new math operations or difficulty levels** by simply adding new subclasses, without altering existing code.
 - The use of **abstract base classes** like `MathOperation` and `ProblemGenerator` facilitates easy extension through subclassing.
@@ -194,7 +194,7 @@ The codebase is structured to be **open for extension but closed for modificatio
 
 ### 3. **L – Liskov Substitution Principle (LSP)**
 
-LSP is honored, meaning **subclasses can seamlessly replace their base classes without causing unexpected behavior**:
+LSP states that **subclasses can seamlessly replace their base classes without causing unexpected behavior**:
 
 - Both `HumanPlayer` and `BotPlayer` can be used interchangeably wherever a `Player` object is expected.
 
@@ -218,7 +218,7 @@ LSP is honored, meaning **subclasses can seamlessly replace their base classes w
 
 ### 4. **I – Interface Segregation Principle (ISP)**
 
-This principle is clearly demonstrated through the **`Answerable` interface**:
+This principle is demonstrated through the **`Answerable` interface**:
 
 - The `answer()` method is **only implemented by `BotPlayer`**, as `HumanPlayer` does not require this specific functionality.
 - This ensures that classes are not forced to depend on methods they don't use.
@@ -261,7 +261,7 @@ This principle is clearly demonstrated through the **`Answerable` interface**:
 
 ### 5. **D – Dependency Inversion Principle (DIP)**
 
-Our architecture ensures that **high-level modules rely on abstractions, rather than concrete implementations**:
+DIP ensures that **high-level modules rely on abstractions, rather than concrete implementations**:
 
 - `QuestionManager` depends on the **abstract `ProblemGenerator`**, allowing for flexible problem creation.
 
