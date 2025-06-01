@@ -197,8 +197,6 @@ class UIManager:
         self.game_app.game_over_page.set_results(self.game_app.stats.players, winner)
         self.game_app.stacked_widget.setCurrentWidget(self.game_app.game_over_page)
 
-# PlayerManager class is removed
-
 class TimerManager:
     def __init__(self, game_app):
         self.game_app = game_app
@@ -352,7 +350,6 @@ class GameFlowManager:
     def play_again(self):
         self.game_app.controller.ui_manager.show_setup()
 
-
 class GameManager:
     def __init__(self, game_app):
         self.game_app = game_app
@@ -401,7 +398,6 @@ class GameManager:
     def all_answered(self):
         return all(not field.isEnabled() for _, field, _ in self.game_app.game_page.player_inputs)
 
-
 class Application(QtWidgets.QMainWindow): # GameApp renamed to Application
     def __init__(self):
         super().__init__()
@@ -429,7 +425,6 @@ class Application(QtWidgets.QMainWindow): # GameApp renamed to Application
         for page in [self.start_page, self.setup_page, self.game_page, self.game_over_page]:
             self.stacked_widget.addWidget(page)
         self.controller.show_start()
-
 
 class GameController:
     def __init__(self, ui_manager: UIManager, question_manager: QuestionManager, bot_manager: BotManager, game_flow_manager: GameFlowManager):
