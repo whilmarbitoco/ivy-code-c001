@@ -363,11 +363,11 @@ class GameManager:
 
         dialog = NameInputDialog(num_players, self.game_app)
         if dialog.exec_() == QtWidgets.QDialog.Accepted:
-            names = dialog.get_names() # dynamic data from dialog
-            if game_mode == 1:
-                players = [HumanPlayer(name) for name in names]
-            else:
-                players = [HumanPlayer(names[0]), BotPlayer()]
+            names = dialog.get_names() # dynamic data from dialog (ui_components.py)
+            if game_mode == 1: #if multiplayer mode
+                players = [HumanPlayer(name) for name in names] #instantiate all players 
+            else: #if single player mode
+                players = [HumanPlayer(names[0]), BotPlayer()] #instantiate player and bot
         else:
             print("Game initialization cancelled or no players selected.")
             return None
